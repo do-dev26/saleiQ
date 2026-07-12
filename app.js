@@ -28,18 +28,7 @@ app.use(cors({
 }));
 
 // ── Stripe webhook MUST be before express.json() ──────────────────────────────
-// Stripe webhook — inline (no separate file needed)
-app.use('/webhook/stripe', require('express').raw({ type: 'application/json' }), async (req, res) => {
-  const sig = req.headers['stripe-signature'];
-  try {
-    const billingSvc = require('./services/billing.service');
-    const event = billingSvc.constructEvent(req.body, sig);
-    await billingSvc.handleWebhookEvent(event);
-    res.json({ received: true });
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-});
+app.use('/webhook/stripe', require('./webhooks/stripe.webhook'));
 
 // ── Body Parsers ──────────────────────────────────────────────────────────────
 app.use(express.json({ limit: '5mb' }));
