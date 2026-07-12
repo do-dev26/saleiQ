@@ -1,4 +1,14 @@
 require('../config/env'); // validate env vars first
+
+// ── Single-instance guard ──────────────────────────────────────────────────────
+// Prevents duplicate cron runs when multiple processes start this file.
+// Set CRON_INSTANCE_ID in env; only the instance with id "1" (or unset) runs jobs.
+const instanceId = process.env.CRON_INSTANCE_ID;
+if (instanceId && instanceId !== '1') {
+  console.log(`[Cron] Skipping — this is instance ${instanceId}, only instance 1 runs cron.`);
+  process.exit(0);
+}
+
 const cron   = require('node-cron');
 const fb     = require('../services/firebase.service');
 const billingSvc = require('../services/billing.service');
@@ -63,20 +73,41 @@ cron.schedule('0 2 * * *', async () => {
 });
 
 /**
- * Run every Sunday at 3am — clean up old conversation logs (>90 days) for free users.
+ * Run every Sunday at 3am — clean up old conversation logs (>90 days) for FREE users only.
+ * Paid users get indefinite retention.
  */
 cron.schedule('0 3 * * 0', async () => {
   logger.info('[Cron] Old conversation cleanup starting...');
   try {
+    // Only delete conversations belonging to free-plan users
+    const freeUsers = await fb.query('users', [
+      { field: 'plan', op: '==', value: 'free' },
+    ]);
+    const freeUids = freeUsers.map(u => u.id);
+
+    if (!freeUids.length) {
+      logger.info('[Cron] No free users found — cleanup skipped.');
+      return;
+    }
+
     const cutoff = new Date(Date.now() - 90 * 86400000).toISOString();
-    const old    = await fb.query('conversations', [
-      { field: 'createdAt', op: '<', value: cutoff },
-    ], { limit: 500 });
 
-    const ops = old.map(c => ({ col: 'conversations', id: c.id, type: 'delete' }));
-    if (ops.length) await fb.batchUpdate(ops);
+    // Firestore does not support 'in' + range in the same query without a composite index,
+    // so we process in batches per user (keeps it simple and index-free).
+    let totalDeleted = 0;
+    for (const uid of freeUids) {
+      const old = await fb.query('conversations', [
+        { field: 'ownerId',   op: '==', value: uid },
+        { field: 'createdAt', op: '<',  value: cutoff },
+      ], { limit: 500 });
 
-    logger.info(`[Cron] Cleaned up ${ops.length} old conversation records.`);
+      if (!old.length) continue;
+      const ops = old.map(c => ({ col: 'conversations', id: c.id, type: 'delete' }));
+      await fb.batchUpdate(ops);
+      totalDeleted += ops.length;
+    }
+
+    logger.info(`[Cron] Cleaned up ${totalDeleted} old conversation records (free users only).`);
   } catch (err) {
     logger.error('[Cron] Cleanup failed:', err.message);
   }
