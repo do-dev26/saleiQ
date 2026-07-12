@@ -13,7 +13,7 @@ exports.createBusinessProfile = (data = {}) => {
 
   const now = new Date().toISOString();
   return {
-    id:          uuidv4(),
+    id:          data.id || uuidv4(),   // preserve existing id on update
     widgetId:    data.widgetId,
     ownerId:     data.ownerId,
 

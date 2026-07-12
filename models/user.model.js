@@ -28,6 +28,12 @@ const DEFAULTS = {
 exports.createUser = (data = {}) => {
   if (!data.uid || !data.email) throw new Error('uid and email are required');
 
+  // Reset date = 1st of next month at midnight UTC
+  const nextReset = new Date();
+  nextReset.setUTCDate(1);
+  nextReset.setUTCMonth(nextReset.getUTCMonth() + 1);
+  nextReset.setUTCHours(0, 0, 0, 0);
+
   const now = new Date().toISOString();
   return {
     ...DEFAULTS,
@@ -35,7 +41,7 @@ exports.createUser = (data = {}) => {
     uid:            data.uid,
     email:          data.email,
     id:             data.uid,
-    usageResetDate: new Date(new Date().setDate(1) + 30 * 86400000).toISOString(),
+    usageResetDate: nextReset.toISOString(),
     createdAt:      now,
     updatedAt:      now,
   };
