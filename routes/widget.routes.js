@@ -1,23 +1,24 @@
 const router = require('express').Router();
 const ctrl   = require('../controllers/widget.controller');
 const { authenticate } = require('../middleware/auth.middleware');
+const { validateCreateWidget, validateUpdateWidget } = require('../middleware/validate.middleware');
 
-// ── Public ─────────────────────────────────────────────────────────────────────
-router.get('/:widgetId/public', ctrl.getPublicWidget);
-
-// Brain options for widget creation dropdown — authenticated
+// Fix #13: static paths before dynamic ones
 router.get('/meta/brain-options', authenticate, (req, res) => {
   const { BRAIN_OPTIONS } = require('../services/ai.service');
   res.json({ success: true, data: BRAIN_OPTIONS });
 });
 
-// ── Protected ──────────────────────────────────────────────────────────────────
+// Public — no auth required
+router.get('/:widgetId/public', ctrl.getPublicWidget);
+
+// Protected
 router.use(authenticate);
 
 router.get('/',                ctrl.getWidgets);
-router.post('/',               ctrl.createWidget);
+router.post('/',               validateCreateWidget, ctrl.createWidget);
 router.get('/:id',             ctrl.getWidget);
-router.put('/:id',             ctrl.updateWidget);
+router.put('/:id',             validateUpdateWidget, ctrl.updateWidget);
 router.delete('/:id',          ctrl.deleteWidget);
 router.get('/:id/snippet',     ctrl.getSnippet);
 
