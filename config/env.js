@@ -2,6 +2,7 @@ require('dotenv').config();
 
 const required = [
   'JWT_SECRET',
+  'JWT_REFRESH_SECRET',
   'FIREBASE_PROJECT_ID',
   'FIREBASE_CLIENT_EMAIL',
   'FIREBASE_PRIVATE_KEY',
@@ -25,7 +26,7 @@ module.exports = {
 
   jwt: {
     secret:        process.env.JWT_SECRET,
-    refreshSecret: process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET + '_refresh',
+    refreshSecret: process.env.JWT_REFRESH_SECRET,
     accessTTL:     '15m',
     refreshTTL:    '7d',
   },
