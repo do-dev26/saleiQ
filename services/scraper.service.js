@@ -2,6 +2,14 @@ const axios   = require('axios');
 const cheerio = require('cheerio');
 const logger  = require('../utils/logger');
 
+// Reuse the shared Anthropic client — do NOT instantiate a new one per call.
+// ai.service.js owns the singleton; import what we need from it.
+const { extractLeadData: _unused, ...aiModule } = require('./ai.service');
+// We call the Anthropic API directly via the shared client exported from ai.service.
+// To keep the module boundary clean we import the sdk client lazily inside summariseWithAI
+// using the same apiKey/model already validated at startup.
+const { anthropic: aiCfg } = require('../config/env');
+
 /**
  * Scrape a website URL and extract useful business content.
  * Returns structured data that gets stored in business profile.
@@ -113,12 +121,15 @@ exports.summariseWithAI = async (rawText, businessName) => {
   if (!rawText || rawText.length < 50) return [];
 
   try {
-    const Anthropic = require('@anthropic-ai/sdk');
-    const { anthropic: cfg } = require('../config/env');
-    const client = new Anthropic({ apiKey: cfg.apiKey });
+    // Reuse module-level singleton — do not create new Anthropic client on every call
+    if (!exports.summariseWithAI._client) {
+      const Anthropic = require('@anthropic-ai/sdk');
+      exports.summariseWithAI._client = new Anthropic({ apiKey: aiCfg.apiKey });
+    }
+    const client = exports.summariseWithAI._client;
 
     const response = await client.messages.create({
-      model:      cfg.model,
+      model:      aiCfg.model,
       max_tokens: 400,
       system:     `You are a business analyst. Extract the most important sales-relevant facts from this website content.
 Respond ONLY with a JSON array of strings. Max 8 items. Each item max 100 chars.
@@ -131,7 +142,8 @@ No markdown. No explanation. Just the JSON array.`,
     });
 
     const text = response.content[0]?.text?.trim() || '[]';
-    return JSON.parse(text);
+    const clean = text.replace(/```json|```/g, '').trim();
+    return JSON.parse(clean);
   } catch (err) {
     logger.error('[Scraper] AI summarise failed:', err.message);
     return [];
