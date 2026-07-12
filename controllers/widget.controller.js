@@ -56,7 +56,7 @@ exports.getPublicWidget = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-// GET /api/widgets/:widgetId/snippet — returns embed script tag HTML
+// GET /api/widgets/:id/snippet — returns embed script tag HTML
 exports.getSnippet = async (req, res, next) => {
   try {
     const widget = await widgetSvc.getWidget(req.params.id);

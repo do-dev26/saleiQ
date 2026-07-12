@@ -311,11 +311,17 @@ exports.getRevenueStats = async (req, res, next) => {
   try {
     const { plans } = require('../config/env');
 
-    // Count paid users per plan
-    const paidPlans   = ['starter', 'pro', 'enterprise'];
-    const planPrices  = { starter: 29, pro: 79, enterprise: 299 };
-    const planCounts  = {};
-    let   totalMRR    = 0;
+    // Prices come from env (set via STRIPE_PRICE_* and matched to plan names).
+    // If not configured, fall back to default public prices.
+    const planPrices = {
+      starter:    Number(process.env.PLAN_PRICE_STARTER)    || 29,
+      pro:        Number(process.env.PLAN_PRICE_PRO)        || 79,
+      enterprise: Number(process.env.PLAN_PRICE_ENTERPRISE) || 299,
+    };
+
+    const paidPlans  = ['starter', 'pro', 'enterprise'];
+    const planCounts = {};
+    let   totalMRR   = 0;
 
     for (const plan of paidPlans) {
       const count      = await fb.count('users', [
