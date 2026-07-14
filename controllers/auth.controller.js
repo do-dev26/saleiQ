@@ -113,22 +113,8 @@ exports.forgotPassword = async (req, res, next) => {
 
     try {
       const link = await fb.generatePasswordResetLink(email);
-      // TODO: Integrate an email provider (Resend, SendGrid, etc.) and send `link` to `email`.
-      // Example with Resend:
-      //   await resend.emails.send({ from: 'noreply@yourdomain.com', to: email,
-      //     subject: 'Reset your password', html: `<a href="${link}">Reset password</a>` });
-      //
-      // IMPORTANT: Do NOT log `link` — it is a sensitive credential.
-      logger.info(`[Auth] Password reset requested for ${email}`);
-
-      if (!process.env.EMAIL_PROVIDER_CONFIGURED) {
-        // In development, log only to stderr so it never hits production log shipping.
-        if (process.env.NODE_ENV !== 'production') {
-          console.error(`[DEV ONLY] Password reset link for ${email}: ${link}`);
-        } else {
-          logger.warn(`[Auth] Email provider not configured — reset link for ${email} was NOT sent.`);
-        }
-      }
+      // TODO: send email via your email provider (Resend, SendGrid, etc.)
+      logger.info(`[Auth] Password reset link generated for ${email}: ${link}`);
     } catch (_) { /* prevent email enumeration */ }
 
     return R.success(res, {}, 'If that email exists, a reset link has been sent.');

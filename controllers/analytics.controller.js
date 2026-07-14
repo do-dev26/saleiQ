@@ -33,3 +33,12 @@ exports.getConversationStats = async (req, res, next) => {
     return R.success(res, data);
   } catch (err) { next(err); }
 };
+
+// GET /api/analytics/sessions?widgetId=xxx&days=90
+exports.getWidgetSessions = async (req, res, next) => {
+  try {
+    const { widgetId, days = 90 } = req.query;
+    const sessions = await analyticsSvc.getWidgetSessions(req.user.uid, widgetId, Number(days));
+    return R.success(res, { sessions });
+  } catch (err) { next(err); }
+};
