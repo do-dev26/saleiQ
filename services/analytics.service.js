@@ -92,3 +92,41 @@ exports.getConversationStats = async (ownerId, days = 30) => {
     avgWordsPerChat:  convos.length ? Math.round(totalWords / convos.length) : 0,
   };
 };
+
+// GET sessions list for a widget — used by Conversations dashboard page
+exports.getWidgetSessions = async (ownerId, widgetId, days = 90) => {
+  const filters = [
+    { field: 'ownerId',  op: '==', value: ownerId },
+  ];
+  if (widgetId) filters.push({ field: 'widgetId', op: '==', value: widgetId });
+  if (days) {
+    const since = new Date(Date.now() - days * 86400000).toISOString();
+    filters.push({ field: 'createdAt', op: '>=', value: since });
+  }
+
+  const convos = await fb.query('conversations', filters, { orderBy: 'createdAt', dir: 'desc', limit: 500 });
+
+  // Group by sessionId — return one row per session
+  const sessionMap = {};
+  for (const c of convos) {
+    const sid = c.sessionId;
+    if (!sid) continue;
+    if (!sessionMap[sid]) {
+      sessionMap[sid] = {
+        sessionId:   sid,
+        widgetId:    c.widgetId,
+        lastMessage: c.userMessage?.slice(0, 100),
+        lastAt:      c.createdAt,
+        turnCount:   0,
+      };
+    }
+    sessionMap[sid].turnCount++;
+    // Keep the most recent message as preview
+    if (c.createdAt > sessionMap[sid].lastAt) {
+      sessionMap[sid].lastAt      = c.createdAt;
+      sessionMap[sid].lastMessage = c.userMessage?.slice(0, 100);
+    }
+  }
+
+  return Object.values(sessionMap).sort((a, b) => b.lastAt.localeCompare(a.lastAt));
+};
